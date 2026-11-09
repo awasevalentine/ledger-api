@@ -1,98 +1,66 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Production Ledger
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A lending ledger for invoice financing and term loans, built with NestJS, TypeORM and Postgres. Money is stored as integer kobo (bigint). Balance, immutability, idempotency and period close are enforced in the database as well as in application code.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+## Running
 
 ```bash
-$ npm install
+# 1. Start Postgres (binds to host port 55432 to avoid clashes)
+docker compose up -d db
+
+# 2. Install dependencies and start the API
+npm install
+npm run start:dev
+
+# Or run everything in containers
+docker compose up --build
 ```
 
-## Compile and run the project
+Migrations run automatically on first boot (`migrationsRun: true` in the TypeORM config). Set `AUTO_MIGRATE=false` to disable and run them manually with `npm run migration:run`.
+
+## One command: run every test
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm test
 ```
 
-## Run tests
+This script boots Postgres via Docker Compose, creates a clean `ledger_test` database, applies migrations and runs the unit suite followed by the end-to-end suite (including the two 50-way concurrency tests).
 
-```bash
-# unit tests
-$ npm run test
+## Endpoints
 
-# e2e tests
-$ npm run test:e2e
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/loans` | Create a term loan, build the schedule and post the disbursement entry |
+| GET | `/loans/:id` | Return a loan with its schedule |
+| POST | `/invoices/quote` | Quote advance, reserve, fee, penalty and client payable or shortfall |
+| POST | `/invoices` | Create an invoice facility and post the advance entry |
+| GET | `/invoices/:id` | Return an invoice with its posting state |
+| POST | `/invoices/:id/settle` | Settle on the debtor payment date; posts the settlement entry per the posting rules |
+| POST | `/loans/:id/payments` | Apply a payment with the oldest-unpaid-first waterfall. Requires `Idempotency-Key` |
+| POST | `/payments/:id/reverse` | Reverse a payment (full, or partial via `amountKobo`). LIFO within current allocations; later payments are re-allocated |
+| POST | `/jobs/accrue?asOf=YYYY-MM-DD` | Accrue interest for every due un-accrued instalment |
+| POST | `/ledger/entries/:id/reverse` | Post a linked reversing journal entry |
+| GET | `/ledger/trial-balance` | Per-account debits, credits and net |
+| POST | `/periods/:yyyy-mm/close` | Close a period. Later back-dated inserts are rejected by trigger |
+| GET | `/periods` | List periods |
+| GET | `/reconciliation` | Prove that loan-level balances equal control accounts |
 
-# test coverage
-$ npm run test:cov
+## Repository layout
+
+```
+src/
+  database/          migrations, entities, bigint transformer, data source
+  money/             kobo (bigint) math, half-up rounding, date helpers
+  domain/            amortization, invoice quote
+  ledger/            post, reverse, trial balance
+  loans/             POST /loans
+  invoices/          POST /invoices/quote
+  payments/          create, waterfall allocation, reversal + re-allocation
+  jobs/              accrual job
+  periods/           period close
+  reconciliation/    control account vs loan-level proof
+  common/            bigint JSON, idempotency helpers, exception filter
+test/                e2e specs (one per surface, plus concurrency)
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+See `NOTES.md` for assumptions and gaps, and `DESIGN.md` for failure modes, webhook handling, drift detection and scaling.
