@@ -2,6 +2,9 @@
 /dist
 /node_modules
 /build
+dist
+coverage
+
 
 # Logs
 logs
@@ -14,6 +17,7 @@ lerna-debug.log*
 
 # OS
 .DS_Store
+*.pdf
 
 # Tests
 /coverage
