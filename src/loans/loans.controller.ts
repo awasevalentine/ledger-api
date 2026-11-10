@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { LoansService } from './loans.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 
@@ -7,7 +7,6 @@ export class LoansController {
   constructor(private readonly loans: LoansService) {}
 
   @Post()
-  @HttpCode(201)
   create(@Body() dto: CreateLoanDto) {
     return this.loans.create(dto);
   }

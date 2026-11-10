@@ -7,7 +7,20 @@ import { quoteInvoice } from '../domain/invoice';
 import { kobo } from '../money/money';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { SettleInvoiceDto } from './dto/settle-invoice.dto';
+import { QuoteInvoiceDto } from './dto/quote-invoice.dto';
 import { PostLine } from '../ledger/ledger.types';
+
+export interface InvoiceQuoteView {
+  faceValueKobo: string;
+  advanceKobo: string;
+  reserveKobo: string;
+  tenorDays: number;
+  discountFeeKobo: string;
+  daysOverdue: number;
+  latePenaltyKobo: string;
+  payableToClientKobo: string;
+  clientShortfallKobo: string;
+}
 
 export interface InvoiceView {
   id: string;
@@ -33,6 +46,26 @@ export class InvoicesService {
     @InjectDataSource() private readonly ds: DataSource,
     private readonly ledger: LedgerService,
   ) {}
+
+  quote(dto: QuoteInvoiceDto): InvoiceQuoteView {
+    const q = quoteInvoice({
+      faceValueKobo: kobo(dto.faceValueKobo),
+      issueDate: dto.issueDate,
+      dueDate: dto.dueDate,
+      settlementDate: dto.settlementDate,
+    });
+    return {
+      faceValueKobo: q.faceValueKobo.toString(),
+      advanceKobo: q.advanceKobo.toString(),
+      reserveKobo: q.reserveKobo.toString(),
+      tenorDays: q.tenorDays,
+      discountFeeKobo: q.discountFeeKobo.toString(),
+      daysOverdue: q.daysOverdue,
+      latePenaltyKobo: q.latePenaltyKobo.toString(),
+      payableToClientKobo: q.payableToClientKobo.toString(),
+      clientShortfallKobo: q.clientShortfallKobo.toString(),
+    };
+  }
 
   async create(dto: CreateInvoiceDto): Promise<InvoiceView> {
     const quote = quoteInvoice({
