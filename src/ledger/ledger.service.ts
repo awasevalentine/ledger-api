@@ -160,6 +160,25 @@ export class LedgerService implements OnModuleInit {
     };
   }
 
+  async reverseEntryStandalone(
+    entryId: string,
+    opts: { entryDate: string; memo?: string },
+  ): Promise<PostedEntry> {
+    const qr = this.ds.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      const entry = await this.reverseEntry(qr, entryId, opts);
+      await qr.commitTransaction();
+      return entry;
+    } catch (e) {
+      await qr.rollbackTransaction();
+      throw e;
+    } finally {
+      await qr.release();
+    }
+  }
+
   async trialBalance(asOf?: string): Promise<TrialBalanceRow[]> {
     const params: unknown[] = [];
     const where = asOf ? `WHERE je.entry_date <= $1` : '';
