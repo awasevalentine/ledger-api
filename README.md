@@ -62,5 +62,3 @@ src/
   common/            bigint JSON, idempotency helpers, exception filter
 test/                e2e specs (one per surface, plus concurrency)
 ```
-
-See `NOTES.md` for assumptions and gaps, and `DESIGN.md` for failure modes, webhook handling, drift detection and scaling.
